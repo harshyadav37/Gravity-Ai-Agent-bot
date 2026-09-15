@@ -1,6 +1,5 @@
 
 import { boolean, integer, jsonb, pgTable, serial, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
-import { stat } from "fs";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -54,5 +53,24 @@ export const tools = pgTable("tools", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const AgentConfig= pgTable("agentConfig",{
+    id: serial("id").primaryKey(),
+  userEmail:text('email').references(()=>users.email),
+    agentId:varchar('agentId').notNull().unique(),
+    name:varchar('name'),
+    agentImage:varchar('agentImage'),
+    description :text('description'),
+    instructions:text('instructions'),
+    objective:text('objective'),
+    tools:jsonb('tools'),
+    skills:jsonb('skills'),
+    schedule:jsonb('schedule'),
+    outputFormat:text('outputFormat'),
+    status:varchar('status').default('active'),   //  active ,pause
+     createdAt: timestamp("created_at").defaultNow().notNull(),
+
+
+})
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

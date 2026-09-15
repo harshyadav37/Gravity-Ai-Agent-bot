@@ -82,6 +82,8 @@ import { NextResponse, NextRequest } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { AgentConfigSystemPrompt } from "@/data/Prompt";
 import { AgentConfigRespSchema } from "@/data/ResponseSchema";
+import { AgentConfig, db, tools } from "@/db";
+import { currentUser } from "@clerk/nextjs/server";
 
 const MODEL = "gemini-3.6-flash";
 const MAX_ATTEMPTS = 3;
@@ -126,6 +128,16 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+  const user = await currentUser();
+
+  if (!user?.primaryEmailAddress?.emailAddress) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
+  const aiTools = await db
+    .select({ slug: tools.slug })
+    .from(tools);
+  const availableTools = aiTools.map(({ slug }) => slug).join("\n- ");
 
   const ai = new GoogleGenAI({ apiKey });
   let lastError: unknown = null;
@@ -134,7 +146,9 @@ export async function POST(req: NextRequest) {
     try {
       const interaction = await ai.interactions.create({
         model: MODEL,
-        input: AgentConfigSystemPrompt.replace("{USER_PROMPT}", () => prompt!),
+        input: AgentConfigSystemPrompt
+          .replace("{USER_PROMPT}", prompt)
+          .replace("{AVAILABLE_TOOLS}", availableTools),
         response_format: {
           type: "text",
           mime_type: "application/json",
@@ -145,16 +159,51 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      return NextResponse.json(
-        JSON.parse(interaction.output_text),
-        { status: 200 }
-      );
+      const outputText = interaction.output_text?.trim();
+
+      if (!outputText) {
+        throw new Error("The AI model returned an empty response");
+      }
+
+
+      const aiOutput = JSON.parse(outputText);
+
+      if (aiOutput.status === "ready") {
+        const agentId = crypto.randomUUID();
+        const dbResult = await db
+          .insert(AgentConfig)
+          .values({
+            ...aiOutput.config,
+            agentImage:
+              "https://api.dicebear.com/10.x/clay/svg?tags=animation&seed=" +
+              agentId,
+            agentId,
+            userEmail: user.primaryEmailAddress.emailAddress,
+          })
+          .returning();
+
+        return NextResponse.json(
+          { ...aiOutput, agent: dbResult[0] },
+          { status: 200 }
+        );
+      }
+
+      return NextResponse.json(aiOutput, { status: 200 });
     } catch (error: any) {
       lastError = error;
       console.error(
         `Error in /api/agent/configure attempt ${attempt}/${MAX_ATTEMPTS}:`,
         error
       );
+        
+
+
+
+
+
+
+
+
 
       // Fail fast on retired models — don't waste retries
       if (isRetiredModelError(error)) {

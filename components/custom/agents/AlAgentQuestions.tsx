@@ -5,14 +5,17 @@ import type { ClarificationQuestions } from "./CreateAgent";
 
 type Props = {
   questionList: ClarificationQuestions[];
+  onComplete: (answers: Record<string, string | string[]>) => Promise<void> | void;
 };
 
-const AlAgentQuestions = ({ questionList }: Props) => {
+const AlAgentQuestions = ({ questionList, onComplete }: Props) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const [answers, setAnswers] = useState<Record<string, string | string[]>>(
     {}
   );
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (!questionList || questionList.length === 0) {
     return (
@@ -73,9 +76,18 @@ const AlAgentQuestions = ({ questionList }: Props) => {
   // -----------------------------------------
   // Next
   // -----------------------------------------
-  const handleNext = () => {
+  const handleNext = async () => {
     if (isLastQuestion) {
-      console.log("FINAL ANSWERS:", answers);
+      try {
+        setSubmitting(true);
+        setSubmitError(null);
+        await onComplete(answers);
+      } catch (error) {
+        console.error("Failed to submit clarification answers:", error);
+        setSubmitError("Could not submit your answers. Please try again.");
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
 
@@ -379,13 +391,18 @@ const AlAgentQuestions = ({ questionList }: Props) => {
             <button
               type="button"
               onClick={handleNext}
-              disabled={!hasAnswer}
+              disabled={!hasAnswer || submitting}
               className="rounded-xl bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {isLastQuestion ? "Finish ✓" : "Next →"}
+              {submitting ? "Submitting..." : isLastQuestion ? "Finish ✓" : "Next →"}
             </button>
 
           </div>
+          {submitError && (
+            <p className="mt-3 text-right text-sm text-destructive">
+              {submitError}
+            </p>
+          )}
         </div>
 
         {/* Small helper */}

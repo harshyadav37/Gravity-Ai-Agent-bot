@@ -39,14 +39,7 @@ SKILLS:
 - Use Title Case.
 
 AVAILABLE TOOLS:
-
-- google_search
-- serp_search
-- browserbase
-- gmail
-- slack
-- google_calendar
-- notion
+{AVAILABLE_TOOLS}
 
 CLARIFICATION QUESTION RULES:
 

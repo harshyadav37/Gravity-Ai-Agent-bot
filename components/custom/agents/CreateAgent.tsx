@@ -114,7 +114,21 @@ const CreateAgent = () => {
     
 
 
-
+const onComplete =async(ans:any)=>{
+    console.log('OnComplete',ans);
+    setConfigResult(undefined)
+    const updatedPrompt = `${prompt}\nClarification answers:\n${JSON.stringify(ans)}`
+         try{
+             setloading(true);
+    const result= await axios.post('/api/agent/configure',{prompt:updatedPrompt}) 
+    console.log(result.data)
+    setConfigResult(result.data);
+    setloading(false);
+}catch(error){
+  setloading(false);
+  alert("No response")
+}
+}
 
 
   return (
@@ -177,7 +191,10 @@ const CreateAgent = () => {
 
         {ConfigResult &&
         <div className='p-5 border rounded-2xl'>
-            {ConfigResult.status=='needs_clarification' &&  <AIAgentQuestions questionList={ConfigResult.clarificationQuestions}/>}
+            {ConfigResult.status=='needs_clarification' &&  <AIAgentQuestions questionList={ConfigResult.clarificationQuestions}
+            onComplete={(resp:any)=>onComplete(resp)}/>
+            }
+            
             <p>{JSON.stringify(ConfigResult)}</p></div>}
     </div>
   )
